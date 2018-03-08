@@ -49,8 +49,17 @@ export const open = async (
   progressCallback?: Realm.Sync.ProgressNotificationCallback,
   schema?: Realm.ObjectSchema[],
 ): Promise<Realm> => {
-  const url = getUrl(user, realmPath);
-
+  // That path might come directly from the Realm browser window, which displays the full path, including the
+  // `__Partial` prefix, but we use the public Realm API to open the Realm, in which manually specifying this prefix
+  // is not allowed so if found we need to remove it here and set the `partial` flag instead. The proper conversion
+  // is then done in Object Store.
+  let partialRealm = false;
+  let path = realmPath;
+  if (realmPath.indexOf('/__partial/') !== -1) {
+    partialRealm = true;
+    path = realmPath.replace('/__partial/', '/');
+  }
+  const url = getUrl(user, path);
   const realm = Realm.open({
     encryptionKey,
     schema,
@@ -60,6 +69,7 @@ export const open = async (
       error: ssl.errorCallback || defaultSyncErrorCallback,
       validate_ssl: ssl.validateCertificates,
       ssl_trust_certificate_path: ssl.certificatePath,
+      partial: partialRealm,
     },
   });
 
